@@ -1,0 +1,177 @@
+# This is an example of a bring your own (byo) host inventory
+
+# Create an OSEv3 group that contains the masters and nodes groups
+[OSEv3:children]
+masters
+nodes
+etcd
+###glusterfs_registry
+#glusterfs
+#scaleup_new_nodes
+
+# Set variables common for all OSEv3 hosts
+[OSEv3:vars]
+#openshift_storage_glusterfs_wipe=True
+###openshift_storage_glusterfs_timeout=900
+
+ansible_ssh_user=ec2-user
+
+# If ansible_ssh_user is not root, ansible_become must be set to true and the
+# user must be configured for passwordless sudo
+ansible_become=yes
+
+# Set to true to use firewalld instead of the default iptables. Not available on RHEL Atomic Host. See the Configuring the Firewall section for more information.
+
+os_firewall_use_firewalld=true
+
+# Debug level for all OpenShift components (Defaults to 2)
+debug_level=2
+
+# Specify the deployment type. Valid values are origin and openshift-enterprise.
+openshift_deployment_type=openshift-enterprise
+
+# Specify the generic release of OpenShift to install. This is used mainly just during installation, after which we
+# rely on the version running on the first master. Works best for containerized installs where we can usually
+# use this to lookup the latest exact version of the container images, which is the tag actually used to configure
+# the cluster. For RPM installations we just verify the version detected in your configured repos matches this
+# release.
+openshift_release=v3.6
+
+
+# Native high availability cluster method with optional load balancer.
+# If no lb group is defined, the installer assumes that a load balancer has
+# been preconfigured. For installation the value of
+# openshift_master_cluster_hostname must resolve to the load balancer
+# or to one or all of the masters defined in the inventory if no load
+# balancer is present.
+openshift_master_cluster_method=native
+openshift_master_cluster_hostname=ocp-$env-master-int.domain.com
+openshift_master_cluster_public_hostname=ocp-$env-master.domain.com
+
+# default subdomain to use for exposed routes
+openshift_master_default_subdomain=ocp-$env.domain.com
+
+
+# Validity of the auto-generated certificate in days (optional) 5 years
+openshift_hosted_registry_cert_expire_days=1825
+#
+# Manage the OpenShift Registry (optional)
+openshift_hosted_manage_registry=true
+
+# Registry Storage Options
+#
+###openshift_hosted_registry_storage_kind=glusterfs
+###openshift_hosted_registry_storage_volume_size=200Gi
+
+# Metrics deployment
+# See: https://docs.openshift.com/enterprise/latest/install_config/cluster_metrics.html
+#
+# By default metrics are not automatically deployed, set this to enable them
+###openshift_hosted_metrics_deploy=true
+
+# Additional metrics settings
+# See https://github.com/openshift/openshift-ansible/tree/release-3.6/roles/openshift_metrics
+#
+###openshift_metrics_install_metrics=True
+###openshift_metrics_hawkular_hostname=hawkular-metrics.ocp-$env.domain.com
+###openshift_metrics_hawkular_replicas=1
+###openshift_metrics_cassandra_storage_type=dynamic
+###openshift_metrics_cassandra_pvc_size=100G
+###openshift_metrics_cassandra_limits_memory=8G
+###openshift_metrics_cassandra_nodeselector={"region":"metrics"}
+###openshift_metrics_hawkular_nodeselector={"region":"metrics"}
+###openshift_metrics_heapster_nodeselector={"region":"metrics"}
+
+# Logging deployment
+#
+# Currently logging deployment is disabled by default, enable it by setting this
+#openshift_logging_es_pvc_dynamic=True
+#openshift_hosted_logging_deploy=true
+###openshift_logging_install_logging=true
+
+# Option C - Dynamic -- If openshift supports dynamic volume provisioning for
+# your cloud platform use this.
+###openshift_logging_es_pvc_size=200Gi
+###openshift_logging_es_memory_limit=8G
+###openshift_logging_master_public_url=https://ocp-$env-master.domain.com:8443
+###openshift_logging_es_nodeselector={"region":"logging"}
+###openshift_logging_curator_nodeselector={"region":"logging"}
+###openshift_logging_kibana_nodeselector={"region": "logging"}
+###openshift_logging_master_url=https://kubernetes.default.svc.{{openshift.common.dns_domain}}
+###openshift_logging_kibana_hostname=kibana.ocp-$env.domain.com
+###openshift_logging_kibana_replica_count=2
+
+# Configure the multi-tenant SDN plugin (default is 'redhat/openshift-ovs-subnet')
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+
+osm_cluster_network_cidr=172.31.0.0/16
+#172.30.0.0/16 default Services
+openshift_portal_net=172.22.0.0/16
+
+#
+# Provide local certificate paths which will be deployed to masters
+openshift_master_named_certificates=[{"certfile": "/etc/certs/WildcardInternal.crt", "keyfile": "/etc/certs/WildcardInternal.key", "names": ["ocp-$env-master.domain.com"], "cafile": "/etc/certs/RootandSubCA.crt"}]
+
+# Provide the certs that will be used for the route
+openshift_hosted_router_certificate={"certfile": "/etc/certs/wild-ocp-$env.cer", "keyfile": "/etc/certs/privkey-ocp-$env.key", "cafile": "/etc/certs/RootandSubCA.crt"}
+
+# Configure usage of openshift_clock role.
+openshift_clock_enabled=true
+
+# In case you want more advanced setup for the auditlog you can
+# use this line.
+# The directory in "auditFilePath" will be created if it's not
+# exist
+openshift_master_audit_config={"enabled": true}
+
+# Validity of the auto-generated OpenShift certificates in days.
+# See also openshift_hosted_registry_cert_expire_days above.
+#
+openshift_ca_cert_expire_days=1825
+openshift_node_cert_expire_days=1825
+openshift_master_cert_expire_days=1825
+
+
+## host group for masters
+[masters]
+$MasterNode1.domain.com
+$MasterNode2.domain.com
+$MasterNode3.domain.com
+
+[etcd]
+$MasterNode1.domain.com
+$MasterNode2.domain.com
+$MasterNode3.domain.com
+
+[nodes]
+$MasterNode1.domain.com openshift_node_labels="{'region': 'masters', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$MasterNode2.domain.com openshift_node_labels="{'region': 'masters', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$MasterNode3.domain.com openshift_node_labels="{'region': 'masters', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$InfraHost1.domain.com openshift_node_labels="{'region': 'infra', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$InfraHost2.domain.com openshift_node_labels="{'region': 'infra', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$InfraHost3.domain.com openshift_node_labels="{'region': 'infra', 'zone': 'default', 'logging-infra-fluentd': 'true'}"
+$AppHost1.domain.com openshift_node_labels="{'region': 'primary', 'zone': 'appsrv', 'logging-infra-fluentd': 'true'}"
+$AppHost2.domain.com openshift_node_labels="{'region': 'primary', 'zone': 'appsrv', 'logging-infra-fluentd': 'true'}"
+$AppHost3.domain.com openshift_node_labels="{'region': 'primary', 'zone': 'appsrv', 'logging-infra-fluentd': 'true'}"
+$AppHost4.domain.com openshift_node_labels="{'region': 'primary', 'zone': 'appsrv', 'logging-infra-fluentd': 'true'}"
+$LoggingHost1.domain.com openshift_node_labels="{'region': 'logging', 'zone': 'logging-es-node-1', 'logging-infra-fluentd': 'true'}"
+$LoggingHost2.domain.com openshift_node_labels="{'region': 'logging', 'zone': 'logging-es-node-2', 'logging-infra-fluentd': 'true'}"
+$MetricHost1.domain.com openshift_node_labels="{'region': 'metrics', 'zone': 'metrics-node-1', 'logging-infra-fluentd': 'true'}"
+$MetricHost2.domain.com openshift_node_labels="{'region': 'metrics', 'zone': 'metrics-node-2', 'logging-infra-fluentd': 'true'}"
+$GlusterHost1.domain.com openshift_node_labels="{'region': 'storage', 'zone': 'cns', 'logging-infra-fluentd': 'true'}"
+$GlusterHost2.domain.com openshift_node_labels="{'region': 'storage', 'zone': 'cns', 'logging-infra-fluentd': 'true'}"
+$GlusterHost3.domain.com openshift_node_labels="{'region': 'storage', 'zone': 'cns', 'logging-infra-fluentd': 'true'}"
+
+
+#[glusterfs_registry]
+#$InfraHost1.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+#$InfraHost2.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+#$InfraHost3.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+
+#[glusterfs]
+###$GlusterHost1.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+###$GlusterHost1.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+###$GlusterHost1.domain.com glusterfs_devices='[ "/dev/sde",  "/dev/sdf",  "/dev/sdg" ]'
+
+#[scaleup_new_nodes]
+

@@ -1,0 +1,36 @@
+---
+# Dont forget to replace $OpenshiftMasterIntUrl.domain.com with
+# The correct URL of you Openshift Master Internal URL
+#
+# Replace all of the $env with the correct env.
+#
+- set_fact: ocp_master_url="https://$OpenshiftMasterIntUrl.domain.com:8443"
+  when: env == "$env"
+
+- set_fact: openshift_token="{{ token_$env }}"
+  when: env == "$env"
+
+- name: Ensure the path for KUBECONFIG is exported
+  shell: export KUBECONFIG=~/.kube/config
+
+- name: Login to OpenShift
+  shell: oc login --token={{ openshift_token }} --insecure-skip-tls-verify=true {{ ocp_master_url }}
+
+- name: Cleanup Docker Orphaned Containers on Hosts.
+  shell: for id in $(sudo docker ps -a -q) ; do docker rm $id ; done
+  become: yes
+  ignore_errors: True
+
+- name: Cleanup Openshift dangling images not used images
+  shell: 'docker images -q -f dangling=true | xargs --no-run-if-empty docker rmi'
+  become: yes
+  ignore_errors: True
+
+- name: Cleaning up all docker images not used
+  command: docker images -q | xargs docker rmi -f
+  become: yes
+  ignore_errors: True
+
+- name: Cleanup Openshift Image Registry Older then 2 versions
+  shell: oc adm prune images --keep-tag-revisions={{ openshift_prune_images_tag_revisions }}  --confirm
+  ignore_errors: True

@@ -1,0 +1,6 @@
+---
+# Replace all of the $env with the correct env.
+# Ex. Change $env to Prod
+#
+token_$env: ReplaceWithSAToken
+openshift_prune_images_tag_revisions: 2
