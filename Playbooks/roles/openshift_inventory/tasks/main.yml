@@ -1,0 +1,26 @@
+---
+- set_fact: ocp_master_url="{{ openshift_master_url }}"
+  when: env == "{{ environment }}"
+
+- set_fact: openshift_token="{{ token_$env }}"
+  when: env == "{{ environment }}"
+  
+- name: Login to OpenShift
+  shell: oc login --token={{ openshift_token }} --insecure-skip-tls-verify=true {{ openshift_master_url }}
+
+- name: Transfering the inventory script
+  template:
+    src: openshift_inventory_sh.j2
+    dest: /tmp/openshift_inventory.sh
+    owner: root
+    group: root
+    mode: 0744
+    
+- name: Executing the script
+  command: "/tmp/openshift_inventory.sh"
+
+- name: Erasing the script from the host
+  file:
+    path: /tmp/ocp_inventory.sh
+    state: absent
+    

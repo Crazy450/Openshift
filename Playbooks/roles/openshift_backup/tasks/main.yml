@@ -1,0 +1,48 @@
+---
+- set_fact: ocp_master_url="{{ openshift_master_url }}"
+  when: env == "{{ environment }}"
+
+- set_fact: openshift_token="{{ token_$env }}"
+  when: env == "{{ environment }}"
+
+- name: Ensure the path for KUBECONFIG is exported
+  shell: export KUBECONFIG=~/.kube/config
+
+- name: Transfering the script in content changed
+  copy: src=backup.sh dest=/opt/openshift/scripts/ mode=774 force=yes
+
+- name: Creating a directory using the date in /opt/backup/
+  file: path=/opt/backup/{{ ansible_date_time.date }} state=directory
+
+- name: Creating a directory templates
+  file: path=/opt/backup/{{ ansible_date_time.date }}/templates state=directory
+
+- name: Creating a directory certs
+  file: path=/opt/backup/{{ ansible_date_time.date }}/certs state=directory
+
+- name: Creating a directory etcd_backup
+  file: path=/opt/backup/{{ ansible_date_time.date }}/etcd_backup state=directory
+
+- name: Creating a directory sysconfig
+  file: path=/opt/backup/{{ ansible_date_time.date }}/sysconfig state=directory
+
+- name: Creating a directory secrets
+  file: path=/opt/backup/{{ ansible_date_time.date }}/secrets state=directory
+
+- name: Creating a directory "{{  env }}"
+  file: path=/opt/backup/{{ ansible_date_time.date }}/secrets/{{  env }} state=directory
+
+- name: Creating a directory ansible_date_time
+  file: path=/opt/backup/tar/{{ ansible_date_time.date }} state=directory
+
+- name: Login to OpenShift
+  shell: oc login --token={{ openshift_token }} --insecure-skip-tls-verify=true {{ ocp_master_url }}
+
+- name: Execute de script to perform the backup
+  command: /opt/openshift/scripts/backup.sh > /opt/backup/logs/backup_$(date +'%d-%m-%y').log 2>&1
+
+- name: Creating the backup of the secrets
+  shell: for i in $(oc get project | grep -v NAME | awk '{print $1}' ) ; do oc project $i; oc get secret -o json > /opt/backup/{{ ansible_date_time.date }}/secrets/{{  env }}/$i.json ; done
+
+- name: Compressing the backup files
+  shell: cd /opt/backup/tar/"{{ ansible_date_time.date }}" ; tar -zcvf "{{ ansible_date_time.date }}.tar.gz" /opt/backup/"{{ ansible_date_time.date }}"

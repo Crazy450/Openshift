@@ -1,0 +1,3 @@
+---
+openshift_master_url: https://openshift.domain.com:8443
+environment: production
