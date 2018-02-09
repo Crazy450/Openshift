@@ -1,0 +1,4 @@
+--- 
+- hosts: all
+  roles:
+   - openshift_os_update

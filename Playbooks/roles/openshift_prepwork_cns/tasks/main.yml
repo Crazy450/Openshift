@@ -1,0 +1,127 @@
+---
+- name: Create a package directory on the main master
+  file: 
+    path: /tmp/packages
+    state: directory
+    owner: root
+    group: root
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Transfer package to /tmp/packages
+  copy: 
+    src: c-d.rpm 
+    dest: /tmp/packages
+    owner: root 
+    group: root
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Transfer package to /tmp/packages
+  copy: 
+    src: h-c.rpm
+    dest: /tmp/packages
+    owner: root
+    group: root
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Manually install package
+  shell: /usr/bin/rpm -i /tmp/packages/c-d.rpm
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Manually install package
+  shell: /usr/bin/rpm -i /tmp/packages/h-c.rpm
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Install iscsi and multipath package on the hosts
+  package: name={{ item }} state=installed
+  with_items:
+       - iscsi-initiator-utils
+       - device-mapper-multipath
+
+- name: Eabling the mpath configuration
+  shell: /usr/sbin/mpathconf --enable
+
+- name: Transfering the mpath configuration file on the hosts
+  copy: 
+    src: multipath.conf
+    dest: /etc/ 
+    owner: root
+    group: root
+
+- name: Restarting and enbaling the multipath service
+  service: 
+    name: multipathd
+    state: restarted
+    enabled: yes
+
+- name: Configuring firewalld for tcp
+  firewalld:
+    port: "{{ item.fw_port }}/tcp"
+    permanent: true
+    state: enabled
+  with_items:
+    - "{{ cns_tcp_ports }}"
+  tags: firewalld_refresh
+
+- name: Adding kernel module
+  shell: "{{ item.add_module }}"
+  with_items:
+    - "{{ adding_kernel_module }}"
+  tags: Kernel_module
+
+- name: Loading kernel module
+  shell: "{{ item.load_module }}"
+  with_items:
+    - "{{ loading_kernel_module }}"
+  tags: Kernel_module
+
+- name: ad-wants command on rpcbind service
+  shell: /usr/bin/systemctl add-wants multi-user rpcbind.service
+
+- name: Requiered services to be started and enabled
+  service:
+    name: rpcbind
+    state: started
+    enabled: yes
+
+- name: review if project is alrealy present on Openshift
+  shell: oc get project | grep {{ project_name }} | awk {'print $2'}
+  register: project_status
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Printing var
+  debug:
+    msg: "{{ project_status }}"
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Creating a project called {{ project_name }}
+  shell: oc new-project {{ project_name }}
+  when: "inventory_hostname == groups['master_nodes'][0] and 'Active' not in project_status.stdout"
+
+- name: Providing priviledge permission to the new project
+  shell: oc adm policy add-scc-to-user privileged -z {{ project_name }}
+  when: "inventory_hostname == groups['master_nodes'][0] and 'Active' not in project_status.stdout"
+
+- name: Creating a directory for the template files /tmp/{{ project_name }}_template
+  file:
+    path: /tmp/{{ project_name }}_template
+    state: directory
+    owner: root
+    group: root
+  when: "inventory_hostname == groups['master_nodes'][0] and 'Active' not in project_status.stdout"
+
+- name: Providing priviledge permission to the default
+  shell: oc adm policy add-scc-to-user privileged -z default
+  when: "inventory_hostname == groups['master_nodes'][0] and 'Active' not in project_status.stdout"
+
+- name: Transfering the topology file
+  copy: 
+    src: cns-topology.json 
+    dest: /tmp/{{ project_name }}_template
+    owner: root
+    group: root
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: Ending message
+  debug:
+    msg: 
+      - "Update the topology file within /tmp/{{ project_name }}_template"

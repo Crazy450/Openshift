@@ -1,0 +1,25 @@
+#Firewalld section
+cns_tcp_ports:
+  - fw_port: 24007
+  - fw_port: 24008
+  - fw_port: 24010
+  - fw_port: 2222
+  - fw_port: 3260
+  - fw_port: 111
+  - fw_port: 49152-49664
+
+adding_kernel_module:
+  - add_module: "echo dm_snapshot > /etc/modules-load.d/dm_snapshot.conf"
+  - add_module: "echo dm_mirror > /etc/modules-load.d/dm_mirror.conf"
+  - add_module: "echo dm_thin_pool > /etc/modules-load.d/dm_thin_pool.conf"
+  - add_module: "echo dm_multipath > /etc/modules-load.d/dm_multipath.conf"
+  - add_module: "echo target_core_user > /etc/modules-load.d/target_core_user.conf"
+
+loading_kernel_module:
+ - load_module: "/usr/sbin/modprobe dm_snapshot"
+ - load_module: "/usr/sbin/modprobe dm_mirror"
+ - load_module: "/usr/sbin/modprobe dm_thin_pool" 
+ - load_module: "/usr/sbin/modprobe dm_multipath"
+ - load_module: "/usr/sbin/modprobe target_core_user"
+
+project_name: storage-project

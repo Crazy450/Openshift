@@ -1,0 +1,5 @@
+--- 
+- hosts: all
+  become: yes
+  roles:
+   - openshift_prepwork_cns

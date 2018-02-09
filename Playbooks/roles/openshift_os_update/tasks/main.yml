@@ -1,0 +1,140 @@
+---
+- name: Ensure RedHat repos are enabled on the server
+  command: subscription-manager config --rhsm.manage_repos=1
+  become: true
+
+- name: Setting a release version of Rhel
+  command: subscription-manager release --set={{ rhel_version }}
+  become: true
+
+- name: Cleaning yum repos
+  command: yum clean all
+  become: true
+
+- name: Complete any pending transactions by yum
+  command: /sbin/yum-complete-transaction
+  become: true
+
+# REPO SECTION
+#
+# Openshift Servers should only have the correct repos enabled
+# To avoid missmatch of packages.
+#
+- name: Disable all repos on servers
+  command: subscription-manager repos --disable "*"
+  become: true
+
+- name: Enable repos rhel-7-server-rpms on servers
+  command: subscription-manager repos --enable=rhel-7-server-rpms
+  become: true
+
+- name: Enable repos rhel-7-server-ose-3.6-rpms on servers
+  command: subscription-manager repos --enable=rhel-7-server-ose-3.6-rpms
+  become: true
+
+- name: Enable repos rhel-7-server-extras-rpms on servers
+  command: subscription-manager repos --enable=rhel-7-server-extras-rpms
+  become: true
+
+- name: Enable repos rhel-7-server-optional-rpms on servers
+  command: subscription-manager repos --enable=rhel-7-server-optional-rpms
+  become: true
+
+- name: Placing the node in Schedulable at false
+  shell: oadm manage-node {{ inventory_hostname }} --schedulable=false
+  when: "'master_nodes' not in group_names"
+
+- name: registering the amount of pods on host
+  shell: oc get pod --all-namespaces -o wide | grep {{ inventory_hostname }} | wc | awk {'print $1'}
+  register: pod_on_host
+
+- name: Draining the pods on the host
+  shell: oadm drain {{ inventory_hostname }} --force --delete-local-data --ignore-daemonsets
+
+- name: waithing for the amount of pods be less or equal to 2
+  wait_for:
+    timeout: 60
+
+- name: Stopping the service atomic-openshift* on the host
+  shell: systemctl stop atomic-openshift*
+  become: true
+
+- name: Stopping the service docker on the host
+  systemd:
+    name: docker
+    state: stopped
+  become: true
+
+- name: Stopping the service etcd on the host
+  systemd:
+    name: etcd
+    state: stopped
+  when: "'master_nodes' in group_names"
+  become: true
+
+- name: Cleaning yum repos
+  command: yum clean all
+  become: true
+
+- name: Disabling the excluder Openshift
+  command: /sbin/atomic-openshift-excluder unexclude
+  become: true
+
+- name: Disabling the excluder Docker
+  command: /sbin/atomic-openshift-docker-excluder unexclude
+  become: true
+
+- name: Update Excluder for Openshift and Docker
+  package: name={{ item }} state=latest
+  with_items:
+       - atomic-openshift-excluder
+       - atomic-openshift-docker-excluder
+  become: true
+
+- name: Enabling the excluder Openshift
+  command: /sbin/atomic-openshift-excluder exclude
+  become: true
+
+- name: Enabling the excluder Docker
+  command: /sbin/atomic-openshift-docker-excluder exclude
+  become: true
+
+- name: Updating all packages on the host
+  yum:
+    name: '*'
+    state: latest
+  become: true
+
+- name: restart server
+  shell: sleep 2 && /sbin/shutdown -r +1
+  async: 0
+  poll: 0
+  ignore_errors: True
+  become: true
+
+- name: Wait 1200 seconds, but only start checking after 120 seconds
+  wait_for_connection:
+    delay: 120
+    timeout: 1200
+  become: true
+
+- name: Confirming both pods are in ready state
+  shell: oc get pod --all-namespaces -o wide | grep {{ inventory_hostname }} | grep 1/1 | wc | awk {'print $1'}
+  register: pods_status
+
+- name: Pausing Playbook if pods are not ready state
+  wait_for:
+    timeout: 60
+  when: "'2' not in pods_status.stdout"
+
+- name: Placing the node in Schedulable at true
+  shell: oadm manage-node {{ inventory_hostname }} --schedulable=true
+  when: "'master_nodes' not in group_names"
+
+- name: Pausing Playbook if pods are not ready state
+  wait_for:
+    timeout: 60
+
+- name: Confirmation message
+  debug:
+    msg: The server {{ inventory_hostname }} was properly updated

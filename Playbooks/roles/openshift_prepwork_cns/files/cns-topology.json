@@ -1,0 +1,62 @@
+{
+    "clusters": [
+        {
+            "nodes": [
+                {
+                    "node": {
+                        "hostnames": {
+                            "manage": [
+                                "gluster_server_1_fqdn"
+                            ],
+                            "storage": [
+                                "gluster_server_1_ip"
+                            ]
+                        },
+                        "zone": 1
+                    },
+                    "devices": [
+                        "/dev/sde",
+                        "/dev/sdf",
+                        "/dev/sdg"
+                    ]
+                },
+                {
+                    "node": {
+                        "hostnames": {
+                            "manage": [
+                                "gluster_server_2_fqdn"
+                            ],
+                            "storage": [
+                                "gluster_server_2_ip"
+                            ]
+                        },
+                        "zone": 2
+                    },
+                    "devices": [
+                        "/dev/sde",
+                        "/dev/sdf",
+                        "/dev/sdg"
+                    ]
+                },
+                {
+                    "node": {
+                        "hostnames": {
+                            "manage": [
+                                "gluster_server_3_fqdn"
+                            ],
+                            "storage": [
+                                "gluster_server_3_ip"
+                            ]
+                        },
+                        "zone": 3
+                    },
+                    "devices": [
+                        "/dev/sde",
+                        "/dev/sdf",
+                        "/dev/sdg"
+                    ]
+                }
+            ]
+        }
+    ]
+}
