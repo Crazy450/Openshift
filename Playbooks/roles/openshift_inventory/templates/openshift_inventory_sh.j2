@@ -5,7 +5,7 @@ logging=`oc get node -L region | grep logging | awk {'print $1'}`
 apps=`oc get node -L region | grep primary | awk {'print $1'}`
 metric=`oc get node -L region | grep metrics | awk {'print $1'}`
 
-cat  << EOF > /tmp/openshift_inventory_{{ environment }}
+cat  << EOF > /tmp/openshift_inventory_{{ env }}
 [master_nodes]
 $master
 [infras_nodes]
