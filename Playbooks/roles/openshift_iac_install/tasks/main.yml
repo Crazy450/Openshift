@@ -1,0 +1,124 @@
+---
+- name: Creating the VPC that will be used for Openshift
+  ec2_vpc_net:
+    name: Openshift
+    cidr_block: "{{ vpc_subnet }}"
+    region: "{{ aws_region }}"
+    tags:
+      name: Openshift IGW
+      env: "{{ env }}"
+    dns_hostnames: yes
+    dns_support: yes
+    state: present
+  register: ec2_vpc
+
+- name: Creating the Internet Gateway
+  ec2_vpc_igw:
+    vpc_id: "{{ ec2_vpc.vpc.id }}"
+    state: present
+    tags:
+      name: openshift-igw
+  register: igw
+
+- name: Set up public subnet route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ ec2_vpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: Openshift Public Route Tables
+    subnets:
+      - "{{ public_subnet.subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw.gateway_id }}"
+  register: public_route_table
+
+- name: Create required security groups
+  ec2_group:
+    name: "{{ item.name }}"
+    description: "{{ item.desc }}"
+    rules: "{{ item.rules }}"
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+  with_items: security_groups
+
+- name: Provision Master Nodes for Openshift
+  ec2:
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+    keypair: "{{ aws_keypair }}"
+    group: "{{ item.group }}"
+    instance_type: "{{ item.instance_type }}"
+    image: "{{ item.image }}"
+    instance_tags: "{{ item.instance_tags }}"
+    exact_count: "{{ item.exact_count }}"
+    count_tag: "{{ item.count_tag }}"
+    wait: true
+  register: ec2_master
+  with_items: ec2_master_instances
+
+- name: Provision Infra Nodes for Openshift
+  ec2:
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+    keypair: "{{ aws_keypair }}"
+    group: "{{ item.group }}"
+    instance_type: "{{ item.instance_type }}"
+    image: "{{ item.image }}"
+    instance_tags: "{{ item.instance_tags }}"
+    exact_count: "{{ item.exact_count }}"
+    count_tag: "{{ item.count_tag }}"
+    wait: true
+  register: ec2_master
+  with_items: ec2_infra_instances
+
+- name: Provision App Nodes for Openshift
+  ec2:
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+    keypair: "{{ aws_keypair }}"
+    group: "{{ item.group }}"
+    instance_type: "{{ item.instance_type }}"
+    image: "{{ item.image }}"
+    instance_tags: "{{ item.instance_tags }}"
+    exact_count: "{{ item.exact_count }}"
+    count_tag: "{{ item.count_tag }}"
+    wait: true
+  register: ec2_master
+  with_items: ec2_app_instances
+
+- name: Provision Metric Nodes for Openshift
+  ec2:
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+    keypair: "{{ aws_keypair }}"
+    group: "{{ item.group }}"
+    instance_type: "{{ item.instance_type }}"
+    image: "{{ item.image }}"
+    instance_tags: "{{ item.instance_tags }}"
+    exact_count: "{{ item.exact_count }}"
+    count_tag: "{{ item.count_tag }}"
+    wait: true
+  register: ec2_master
+  with_items: ec2_metric_instances
+
+- name: Provision Logging Nodes for Openshift
+  ec2:
+    region: "{{ aws_region }}"
+    ec2_access_key: "{{ aws_access_key_id }}"
+    ec2_secret_key: "{{ aws_secret_access_key }}"
+    keypair: "{{ aws_keypair }}"
+    group: "{{ item.group }}"
+    instance_type: "{{ item.instance_type }}"
+    image: "{{ item.image }}"
+    instance_tags: "{{ item.instance_tags }}"
+    exact_count: "{{ item.exact_count }}"
+    count_tag: "{{ item.count_tag }}"
+    wait: true
+  register: ec2_master
+  with_items: ec2_logging_instances

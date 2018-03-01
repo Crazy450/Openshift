@@ -1,0 +1,114 @@
+# Global Vars:
+env: lab
+aws_access_key_id:
+aws_secret_access_key: 
+
+# SSH Keys Section:
+aws_keypair: 
+
+# VPC Section:
+aws_region: ca-central-1
+vpc_subnet: 192.168.0.0/19
+
+# EC2 Section:
+ami_type: t2.micro
+ami_id: ami-dcad28b8
+
+# Security Group Section
+security_groups:
+  - name: ssh
+    desc: The security group for the Bastion server
+    rules:
+      - proto: bastion
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+
+  - name: master
+    desc: The security group for the Master servers
+    rules:
+      - proto: tcp
+        from_port: "8443"
+        to_port: "8443"
+        cidr_ip: 0.0.0.0/0
+
+  - name: infra
+    desc: The security group for the Infra servers
+    rules:
+      - proto: tcp
+        from_port: "80"
+        to_port: "80"
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: "443"
+        to_port: "443"
+        cidr_ip: 0.0.0.0/0
+
+  - name: internal
+    desc: The security group for the Infra servers
+    rules:
+      - proto: tcp
+        from_port: "0"
+        to_port: "0"
+        cidr_ip: 0.0.0.0/0
+      - proto: udp
+        from_port: "0"
+        to_port: "0"
+        cidr_ip: 0.0.0.0/0
+
+# Instances Section
+ec2_master_instances:
+  - instance_type: m1.small
+    image: "{{ ami_id }}"
+    assign_public_ip: true
+    keypair: "{{instances_keypair}}"
+    group: ['master', 'internal']
+    instance_tags: 
+        Name: Master_Node
+    exact_count: 3
+    count_tag: 
+        Name: Master_Node
+
+ec2_infra_instances:
+  - instance_type: m1.small
+    image: "{{ ami_id }}"
+    keypair: "{{instances_keypair}}"
+    group: ['infra', 'internal'] 
+    instance_tags: 
+        Name: Infra_Node
+    exact_count: 2 
+    count_tag: 
+        Name: Infra_Node
+
+ec2_app_instances:
+  - instance_type: m1.small
+    image: "{{ ami_id }}"
+    keypair: "{{instances_keypair}}"
+    group: ['internal'] 
+    instance_tags: 
+        Name: App_Node
+    exact_count: 2
+    count_tag: 
+        Name: App_Node
+
+ec2_metric_instances:
+  - instance_type: m1.small
+    image: "{{ ami_id }}"
+    keypair: "{{instances_keypair}}"
+    group: ['internal'] 
+    instance_tags: 
+        Name: Metric_Node
+    exact_count: 1 
+    count_tag: 
+        Name: Metric_Node
+
+ec2_logging_instances:
+  - instance_type: m1.small
+    image: "{{ ami_id }}"
+    keypair: "{{instances_keypair}}"
+    group: ['internal'] 
+    instance_tags: 
+        Name: Logging_Node
+    exact_count: 1
+    count_tag: 
+        Name: Logging_Node
