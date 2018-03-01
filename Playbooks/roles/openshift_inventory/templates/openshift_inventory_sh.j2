@@ -2,15 +2,15 @@
 master=`oc get node -L region | grep master | awk {'print $1'}`
 infras=`oc get node -L region | grep infra | awk {'print $1'}`
 logging=`oc get node -L region | grep logging | awk {'print $1'}`
-apps=`oc get node -L region | grep primary | awk {'print $1'}`
+apps=`oc get node -L region | grep app | awk {'print $1'}`
 metric=`oc get node -L region | grep metrics | awk {'print $1'}`
 
 cat  << EOF > /tmp/openshift_inventory_{{ environment }}
 [master_nodes]
 $master
-[infras_nodes]
+[infra_nodes]
 $infras
-[apps_nodes]
+[app_nodes]
 $apps
 [logging_nodes]
 $logging
