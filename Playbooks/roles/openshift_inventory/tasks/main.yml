@@ -1,9 +1,14 @@
 ---
-- set_fact: ocp_master_url="{{ openshift_master_url }}"
-  when: env == "{{ environment }}"
+- set_fact: openshift_master_url ="{{ openshift_master_url }}"
+  when: env == "{{ env }}"
 
+<<<<<<< HEAD
 - set_fact: openshift_token=="{{ token_$env }}"
   when: env == "{{ environement }}"
+=======
+- set_fact: openshift_token="{{ token_$env }}"
+  when: env == "{{ env }}"
+>>>>>>> 37193988d1e2c6fa6ef6f31f984d3a6b20adbd7f
   
 - name: Login to OpenShift
   shell: oc login --token={{ openshift_token }} --insecure-skip-tls-verify=true {{ openshift_master_url }}

@@ -1,0 +1,34 @@
+env: NotProd
+domain: domain.com
+docker_vg_name: docker-vg
+dockervg_disk: sdc
+Service_IP: 172.22.0.0
+Servivce_Mask: 16
+nexus_repo_url: nexus-repo.domain.com:port
+redhat_repo_url: registry.access.redhat.com
+
+#Firewalld section
+tcp_ports:
+  - fw_port: 10110
+  - fw_port: 14206
+  - fw_port: 18302
+  - fw_port: 22398
+  - fw_port: 26494
+  - fw_port: 30590
+  - fw_port: 34686
+  - fw_port: 38782
+  - fw_port: 42878
+  - fw_port: 46974
+  - fw_port: 51070
+  - fw_port: 55166
+  - fw_port: 59262
+  - fw_port: 63358
+  - fw_port: 1501
+  - fw_port: 1581
+  - fw_port: 7026
+  - fw_port: 5666
+  - fw_port: 6014
+  - fw_port: 7016
+
+#Redhat release version
+rhel_version: 7.4

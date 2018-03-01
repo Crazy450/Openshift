@@ -1,0 +1,275 @@
+---
+# Tags in this playbook: firewalld docker swap certs
+
+- name: Ensure FQDN included within hosts file
+  lineinfile: 
+    dest: /etc/hosts
+    regexp: '^{{ ansible_default_ipv4.address }}' 
+    line: '{{ ansible_default_ipv4.address }} {{ ansible_hostname }}.{{ domain }}'
+    state: present
+    backup: yes
+
+- name: Create a Certs directory within /etc
+  file: path=/etc/certs state=directory owner=root group=root mode=0775 recurse=yes
+  tags: certs
+
+- name: Upload the Router Certificate Key to /etc/certs
+  copy: src="router-privkey-{{ env }}.key" dest=/etc/certs
+  tags: certs
+
+- name: Upload the Router Certificate to /etc/certs
+  copy: src="router-cert-{{ env }}.cer" dest=/etc/certs
+  tags: certs
+
+- name: Upload the Openshift Master Console Certificate Key to /etc/certs
+  copy: src="openshift-console-privkey-{{ env }}.key" dest=/etc/certs
+  tags: certs
+
+- name: Upload the Openshift Master Console Certificate to /etc/certs
+  copy: src="openshift-console-cert-{{ env }}.cer" dest=/etc/certs
+  tags: certs
+
+- name: remove swap 
+  command: /usr/sbin/swapoff -a
+  tags: swap
+
+- name: Disable all swap lines in fstab
+  lineinfile: dest=/etc/fstab
+              state=absent
+              regexp='swap'             
+  tags: swap
+
+- name: Cleaning yum repos
+  command: yum clean all
+  become: true
+
+####################
+# If using Satelite Server, I think this can't be used since
+# The configuration should be done on the Host from where the 
+# Guest is connecting from.
+#
+#- name: Setting a release version of Rhel
+#  command: subscription-manager release --set={{ rhel_version }}
+#  tags: repo
+
+#- name: Complete any pending transactions by yum
+#  command: /sbin/yum-complete-transaction
+#  tags: repo
+
+#- name: Disable all repos on servers
+#  command: subscription-manager repos --disable "*"
+#  tags: repo
+
+#- name: Enable repos rhel-7-server-rpms on servers
+#  command: subscription-manager repos --enable=rhel-7-server-rpms
+#  tags: repo
+
+#- name: Enable repos rhel-7-server-ose-3.6-rpms on servers
+#  command: subscription-manager repos --enable=rhel-7-server-ose-3.6-rpms
+#  tags: repo
+
+#- name: Enable repos rhel-7-fast-datapath-rpms on servers
+#  command: subscription-manager repos --enable=rhel-7-fast-datapath-rpms
+#  tags: repo
+
+#- name: Enable repos rhel-7-server-extras-rpms on servers
+#  command: subscription-manager repos --enable=rhel-7-server-extras-rpms
+#  tags: repo
+
+#- name: Enable repos rhel-7-server-optional-rpms on servers
+#  command: subscription-manager repos --enable=rhel-7-server-optional-rpms
+#  tags: repo
+
+#- name: Enable repos rh-gluster-3-client-for-rhel-7-server-rpms on servers
+#  command: subscription-manager repos --enable=rh-gluster-3-client-for-rhel-7-server-rpms
+#  tags: repo
+##############################
+
+- name: Edit /etc/selinux/config to enforcing selinux
+  lineinfile: dest=/etc/selinux/config
+              regexp='^SELINUX=' line='SELINUX=enforcing'
+              state=present
+
+- name: restart server
+  shell: sleep 2 && /sbin/shutdown -r +1
+  async: 0
+  poll: 0
+  ignore_errors: True
+
+- name: Wait 1200 seconds, but only start checking after 120 seconds
+  wait_for_connection:
+    delay: 120
+    timeout: 1200
+
+- name: Enable setenforce
+  command: /usr/sbin/setenforce 1
+
+- name: Enable nfs access with selinux
+  command: /usr/sbin/setsebool -P virt_use_nfs 1
+
+- name: Enable fusefs access with selinux
+  command: /usr/sbin/setsebool -P virt_sandbox_use_fusefs on
+
+- name: Install requiered package to new Openshift server
+  package: 
+    name: "{{ item }}"
+    state: installed
+  with_items:
+       - wget
+       - git
+       - net-tools
+       - bind-utils
+       - firewalld
+       - bridge-utils
+       - bash-completion
+       - kexec-tools
+       - NetworkManager
+       - sos
+       - psacct
+       - lsof
+       - strace
+       - nc
+       - telnet
+       - mlocate
+       - glusterfs-fuse
+
+- name: Updating all packages on the host
+  yum:
+    name: '*'
+    state: latest
+  become: true
+
+- name: Starting and enabling NetworkManager service
+  service:
+    name: NetworkManager
+    state: started
+    enabled: yes
+
+- name: restart server
+  shell: sleep 2 && /sbin/shutdown -r +1
+  async: 0
+  poll: 0
+  ignore_errors: True
+
+- name: Wait 1200 seconds, but only start checking after 120 seconds
+  wait_for_connection:
+    delay: 120
+    timeout: 1200
+  
+- name: Install packages following the restart of the host
+  package: 
+    name: "{{ item }}"
+    state: installed
+  with_items:
+       - atomic-openshift-utils
+       - docker-1.12.6
+
+- name: transfer docker template file to /etc/sysconfig/docker
+  template: src=docker.j2 dest=/etc/sysconfig/docker owner=root group=root mode=0644
+  tags: docker
+
+- name: transfer docker-storage-setup file to /etc/sysconfig/docker-storage-setup
+  template: src=docker-storage-setup.j2 dest=/etc/sysconfig/docker-storage-setup owner=root group=root mode=0644
+  tags: docker
+
+- name: Add user path to /usr/bin/docker-storage-setup file
+  lineinfile: dest=/usr/bin/docker-storage-setup
+              insertafter='^set -e' line='PATH=/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/root/.local/bin:/home/root/bin'
+              state=present
+  tags: docker
+
+- name: Execute Docker-Storage-Setup
+  command: /usr/bin/docker-storage-setup
+  tags: docker
+
+- name: Edit /etc/sysconfig/docker-storage-setup to disable a line
+  lineinfile: dest=/etc/sysconfig/docker-storage-setup
+              regexp='^DEVS=' line='#DEVS=/dev/{{ dockervg_disk }}'
+              state=present
+  tags: docker
+
+- name: Stop docker service
+  service: name=docker state=stopped
+
+- name: Delete the /var/lib/docker/*
+  command: rm -rf /var/lib/docker/*
+
+- name: Start docker service
+  service: 
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Enabling image signature support
+  package: 
+    name: "{{ item }}"
+    state: installed
+  with_items:
+       - atomic
+
+##Begining of firewalld
+- name: Enabling firewalld service
+  service:
+    name: firewalld
+    enabled: yes
+    state: started
+  tags: firewalld
+
+- name: Configuring firewalld for tcp
+  firewalld:
+    port: "{{ item.fw_port }}/tcp"
+    permanent: true
+    state: enabled
+  with_items:
+    - "{{ tcp_ports }}"
+  tags: firewalld
+
+- name: Transfer NetworkManager.conf to /etc/NetworkManager/
+  copy: 
+    src: NetworkManager.conf
+    dest: /etc/NetworkManager/
+    owner: root
+    group: root
+    mode: 0544
+
+- name: Cleaning yum repos
+  command: yum clean all
+
+- name: Updating all packages on the host
+  yum:
+    name: '*'
+    state: latest
+  become: true
+
+- name: restart server
+  shell: sleep 2 && /sbin/shutdown -r +1
+  async: 0
+  poll: 0
+  ignore_errors: True
+
+- name: Wait 1200 seconds, but only start checking after 120 seconds
+  wait_for_connection:
+    delay: 120
+    timeout: 1200
+
+# SSH Key section
+
+- name: Generate an ssh key on the first master
+  user: 
+    name: "{{ ansible_user }}"
+    generate_ssh_key: yes
+    ssh_key_bits: 4096
+    ssh_key_file: .ssh/id_rsa
+  when: inventory_hostname == groups['master_nodes'][0]
+
+- name: MSG to Add hostname to the knowhost list on the main master
+  debug:
+    msg: 
+      - "Don't forget to execute the following command on the main master"
+      - " ssh-keyscan -t ecdsa (news_servers).iad.ca.inet >> ~/.ssh/known"
+      - "or"
+      - "for i in $(cat /tmp/InventoryFile); do ssh-keyscan -t ecdsa $i >> ~/.ssh/known_hosts; done"
+      - "Also"
+      - "you will need to share the ssh key from the master to all the host. Can be done via Ansible tower"
+      - "cat /home/root/.ssh/id_rsa.pub"
+      - "echo $ContentOfPubKey >> /home/root/.ssh/authorized_keys"
